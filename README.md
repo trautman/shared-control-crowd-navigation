@@ -1,38 +1,142 @@
-# Shared-Control Crowd Navigation Simulator
 
-This repository extends the [crowd-navigation-simulator](https://github.com/trautman/crowd-navigation-simulator) framework to support **shared control** between a robot autonomy module and a human (or simulated human) co-controller navigating through dense pedestrian crowds.
+# Crowd Navigation Simulator
 
-## 🔧 Core Foundation
+A Python-based simulator for evaluating social navigation policies in crowd environments using the ORCA model. This tool supports batch simulations, configurable environments, and a robust analysis suite.
 
-The core of this simulator is the original `crowd-navigation-simulator`, which:
-- Simulates pedestrian motion using **Optimal Reciprocal Collision Avoidance (ORCA)**
-- Uses either **BRNE** (Bayesian Recursion for Nash Equilibrium) or **DWA** (Dynamic Window Approach) for autonomous robot control
+## Repository
 
-This repository **freezes** that codebase and builds additional shared-control logic on top of it.
+**GitHub:** [https://github.com/trautman/crowd-navigation-simulator](https://github.com/trautman/crowd-navigation-simulator)
 
 ---
 
-## 🤝 Shared Control Architecture
+## 🚀 Quick Start
 
-In standard operation:
-- **BRNE** (autonomy) observes pedestrians in the robot’s field of view (FOV), plans a safe trajectory, and outputs velocity commands.
-- The simulator advances one time step and repeats.
+### 1. Clone the repository
 
-In shared-control operation:
-1. **Two decision-makers** observe pedestrians in the FOV:
-   - `BRNE` (robot autonomy)
-   - `DWA` (simulated human or user model)
-2. Each produces a velocity command.
-3. A **shared controller** (e.g. linear blending or optimal transport-based policy) combines both commands into a final control signal for the robot.
+```bash
+git clone https://github.com/trautman/crowd-navigation-simulator.git
+cd crowd-navigation-simulator
+```
+
+### 2. Run a simulation
+
+```bash
+python simulator.py \
+    --env-config env-configs/boardwalk.yaml \
+    --sim-config trials/<site>/<scenario>/RUN/simulator_config.yaml \
+    --write_data_to trials/<site>/<scenario>/RUN/data/ \
+    --gui
+```
+
+Replace `<site>` and `<scenario>` accordingly.
 
 ---
 
-## 🗂️ Repository Structure
+## 🛠️ Simulator Configuration
 
-```plaintext
-shared-control-crowd-navigation/
-├── crowd-navigation-simulator/     # Frozen core simulator
-├── shared_control/                 # Shared control logic (blending, controller classes, etc.)
-├── sim_prompt_freeze_task/         # Change-tracking system with documented development tasks
-├── README.md
-└── ...
+### Create a Simulation Run
+
+1. In the `trials/` directory, create a folder for your desired setup:
+    ```bash
+    trials/<site>/<scenario>/RUN/
+    ```
+
+2. Place your `simulator_config.yaml` inside this `RUN` directory.
+
+3. Create a `data/` folder inside the same `RUN` directory. This is where the simulator outputs metrics and other data.
+
+    Example structure:
+    ```
+    trials/
+      └── dwb/
+          └── arcade/
+              └── baseline_config/
+                  ├── RUN/
+                  │   └── simulator_config.yaml
+                  └── data/
+    ```
+
+---
+
+## 📊 Analysis Instructions
+
+### Giant Summary Plot
+
+Generate a comprehensive set of metrics binned and plotted with regression:
+
+```bash
+cd analysis
+python analyze_bags.py \
+    --data-dir ../trials/dwb/arcade/baseline_config/data/ \
+    --binned --all --giant_plot
+```
+
+### Plot Individual Metrics
+
+- All binned plots:
+  ```bash
+  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --binned --all
+  ```
+
+- Just efficiency (binned):
+  ```bash
+  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --binned --efficiency
+  ```
+
+- Scatter version of efficiency:
+  ```bash
+  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --scatter --efficiency
+  ```
+
+### YAML Metadata Generation
+
+To create yaml summaries for sim-real-sim2real processing:
+
+```bash
+python analyze_bags.py \
+    --data-dir ../trials/dwb/arcade/baseline_config/data/ \
+    --write_to_yaml \
+    --site Arcade \
+    --state ORCA \
+    --baseline DWB
+```
+
+---
+
+## 🧹 Clean Trials
+
+Remove trials with excessive path lengths:
+
+```bash
+python clean_by_path_length.py \
+    --data-dir ../trials/brne/spawn_rates_1.5-6_spawners_7_old_brne_cost_weights_YES_MASK_with_boundary_correction/data/ \
+    --thresh 12
+```
+
+
+---
+
+## 🧾 Notes
+
+- The simulator reads parameters from `simulator_config.yaml`.
+- Data is written into the `data/` directory inside each RUN folder.
+- GUI mode (`--gui`) is optional but useful for visualization.
+
+---
+
+## 📁 Directory Summary
+
+```
+crowd-navigation-simulator/
+├── simulator.py
+├── env-configs/
+├── trials/
+│   └── <site>/<scenario>/RUN/simulator_config.yaml
+│   └── <site>/<scenario>/data/
+└── analysis/
+    ├── analyze_bags.py
+    └── clean_by_path_length.py
+```
+
+---
+
