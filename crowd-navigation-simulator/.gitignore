@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.csv
+data/
+sandbox/
+trials/
+orca_sim_files.zip
+*.log
