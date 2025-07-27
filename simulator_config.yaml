@@ -1,7 +1,7 @@
 # ─── Simulation‐level parameters ────────────────────────────────
 simulation:
   duration:         240.0      # seconds to run the whole sim
-  robot_delay:       90.0      # seconds before robot starts moving
+  robot_delay:       10.0      # seconds before robot starts moving
   goal_tolerance:    1.5      # m from goal considered "arrived"
   fov_deg:         104.0      # field‐of‐view in degrees
   fov_range:        2.0 #3.5       # FOV distance in meters
@@ -18,10 +18,20 @@ simulation:
 #   pause_between: 0.1  # seconds between frames
 
 # ─── Robot start, goal & algorithm choice ───────────────────────
-robot:
-  algorithm: BRNE       # either "BRNE" or "DWA"
-  start:     [3.0, -15.0]
-  goal:      [3.0,  6.5]
+# robot:
+#   algorithm: BRNE       # either "BRNE" or "DWA"
+#   start:     [5.0, -5.0]
+#   goal:      [5.0,  5.0]
+robots:
+  - name: robot1
+    algorithm: BRNE
+    start: [5.0, -5.0]
+    goal: [5.0, 5.0]
+  - name: robot2
+    algorithm: DWA
+    start: [4.0, -5.0]
+    goal: [4.0, 6.0]
+
 
 # ─── DWA parameters (only used if algorithm=="DWA") ────────────
 dwa:
@@ -77,6 +87,7 @@ brne:
 # ─── Pedestrian spawners ────────────────────────────────────────
 spawn_mode: random
 ped_spawners:
+  - {}
   - {}
   - {}
   - {}
