@@ -6,7 +6,9 @@ import rvo2
 import time
 
 from matplotlib.patches import Rectangle, Wedge
+import matplotlib.patches as mpatches
 from matplotlib.transforms import Affine2D
+from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
 
 from dwa_controller import DWAController
@@ -229,7 +231,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                 ctl = DWAController(rcfg, TIME_STEP)
 
             rid = sim.addAgent(tuple(start))
-            # sim.setAgentMaxSpeed(rid, rcfg['max_speed'])
+            sim.setAgentMaxSpeed(rid, rcfg['max_speed'])
 
             robots.append({
                 'id': i,
@@ -250,6 +252,9 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     'prev_pos': start.copy(),
                 }
             })
+        # --- DEBUG: print each robot's algorithm ---
+        for robot in robots:
+            print(f"Robot {robot['id']+1} algorithm = {robot['algo']}")
 
         add_walls(sim, walls)
         # rid = sim.addAgent(tuple(start))
@@ -299,30 +304,31 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             for sp in ped_spawners:
                 ax.scatter(*sp.pos, c='green', marker='x', s=80, zorder=2)
                 ax.scatter(*sp.goal,c='red',   marker='*', s=80, zorder=2)
-            # ax.scatter(*start,c='magenta',marker='s', s=80, label='Start',zorder=3)
-            # ax.scatter(*goal, c='magenta',marker='D', s=80, label='Goal', zorder=3)
-            # for robot in robots:
-            #     ax.scatter(*robot['start'], c='magenta', marker='s', s=80, zorder=3)
-            #     ax.scatter(*robot['goal'], c='magenta', marker='D', s=80, zorder=3)
-            # for idx, robot in enumerate(robots):
-            #     color = robot_colors[idx % len(robot_colors)]
-            #     ax.scatter(*robot['start'], c='gray', marker='s', s=80, zorder=3, label='Start')
-            #     ax.scatter(*robot['goal'],  c=color, marker='D', s=80, zorder=3, label=f"Goal {idx+1}")
-            for robot in robots:
-                color = robot['color']  # ✅ Use the stored color
-                ax.scatter(*robot['start'], c='gray', marker='s', s=80, zorder=3, label='Start')
-                ax.scatter(*robot['goal'],  c=color, marker='D', s=80, zorder=3, label=f"Goal {robot['id']+1}")
 
+            # plot each robot’s start and goal in its own color,
+            # and label the legend “Robot <i>: <ALGO>”
+            for idx, robot in enumerate(robots):
+                color = robot['color']
+                algo  = robot['algo']  # should be 'DWA' or 'BRNE', etc.
 
+                # square = start; diamond = goal
+                ax.scatter(
+                    *robot['start'],
+                    c=color, marker='s', s=80,
+                    zorder=3,
+                    label=f"Robot {idx+1}: {algo}"
+                )
+                ax.scatter(
+                    *robot['goal'],
+                    c=color, marker='D', s=80,
+                    zorder=3
+                )
 
+            # now draw a single legend
             ax.legend(loc='upper left')
 
+
             scatter = ax.scatter([],[],s=50,zorder=4)
-            # robot_patch = Rectangle((-0.3,-0.3),0.6,0.6,
-            #                         facecolor='magenta',edgecolor='black',zorder=5)
-            # ax.add_patch(robot_patch)
-            # wedge = Wedge((0,0),FOV_R,0,0,facecolor='yellow',alpha=0.3,zorder=2)
-            # ax.add_patch(wedge)
 
             robot_patches = []
             robot_wedges = []
@@ -339,29 +345,39 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                 ax.add_patch(wedge)
                 robot_wedges.append(wedge)
 
+            # ── NEW: Create a Text label for each robot’s algorithm ───────────
+            robot_texts = []
+            for idx, robot in enumerate(robots):
+                x0, y0 = robot['start'][:2]
+                txt = ax.text(
+                    x0, y0 + 0.4,               # 0.4m above the robot
+                    robot['algo'],              # label = "DWA" or "BRNE"
+                    color=robot['color'],       # same color as robot
+                    fontsize=9,
+                    ha='center',
+                    va='bottom',
+                    zorder=6
+                )
+                robot_texts.append(txt)
+            # ─────────────────────────────────────────
 
-            # for robot in robots:
-            #     color = robot['color']
+            # Build one legend handle per robot:
+            legend_handles = []
+            for idx, robot in enumerate(robots):
+                color = robot['color']
+                algo  = robot['algo']  # 'DWA' or 'BRNE'
+                legend_handles.append(
+                    Line2D([0], [0],
+                        marker='s',         # same marker shape you used
+                        color=color,
+                        label=f"Robot {idx+1}: {algo}",
+                        markersize=8,
+                        linestyle=''        # no line connecting the markers
+                    )
+                )
 
-            # for idx, robot in enumerate(robots):
-            #     # Pick color per robot
-            #     # color = robot_colors[idx % len(robot_colors)]
-
-            #     # Rectangle for robot body
-            #     patch = Rectangle((-0.3, -0.3), 0.6, 0.6,
-            #                       facecolor=color, edgecolor='black', zorder=5)
-            #     ax.add_patch(patch)
-            #     robot_patches.append(patch)
-
-            #     # Wedge for FOV
-            #     wedge = Wedge((0, 0), FOV_R, 0, 0, facecolor=color, alpha=0.3, zorder=2)
-            #     ax.add_patch(wedge)
-            #     robot_wedges.append(wedge)
-
-            # ax.legend(loc='upper left')
-            handles, labels = ax.get_legend_handles_labels()
-            by_label = dict(zip(labels, handles))
-            ax.legend(by_label.values(), by_label.keys(), loc='upper left')
+            # Now place the legend:
+            ax.legend(handles=legend_handles, loc='upper left')
 
             plt.draw(); plt.pause(0.001)
             frame_count = 0
@@ -465,12 +481,12 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
                     sim.setAgentPrefVelocity(rid, (v * math.cos(th), v * math.sin(th)))
 
-                    # Update robot state
-                    rstate[0] += v * math.cos(rstate[2]) * TIME_STEP
-                    rstate[1] += v * math.sin(rstate[2]) * TIME_STEP
-                    rstate[2] += w * TIME_STEP
-                    rstate[2] = (rstate[2] + math.pi) % (2 * math.pi) - math.pi
-                    rstate[3], rstate[4] = v, w
+                    # # Update robot state
+                    # rstate[0] += v * math.cos(rstate[2]) * TIME_STEP
+                    # rstate[1] += v * math.sin(rstate[2]) * TIME_STEP
+                    # rstate[2] += w * TIME_STEP
+                    # rstate[2] = (rstate[2] + math.pi) % (2 * math.pi) - math.pi
+                    # rstate[3], rstate[4] = v, w
 
                     sim.setAgentPosition(rid, (rstate[0], rstate[1]))
 
@@ -595,25 +611,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     scatter.set_offsets(pts)
                     scatter.set_color(colors)
 
-                # update robot orientation & position
-                # tr = Affine2D().rotate_deg_around(
-                #     0, 0, math.degrees(rstate[2])
-                # ).translate(rstate[0], rstate[1])
-                # robot_patch.set_transform(tr + ax.transData)
-
-                # # always update wedge center
-                # wedge.set_center((rstate[0], rstate[1]))
-
-                # # compute raw angles
-                # th_deg = math.degrees(rstate[2])
-                # theta1 = th_deg - FOV_DEG/2    # <<< unchanged, just compute
-                # theta2 = th_deg + FOV_DEG/2    # <<< unchanged, just compute
-
-                # # only update the wedge angles (no other code here!) if valid
-                # if not math.isnan(theta1) and not math.isnan(theta2):
-                #     wedge.theta1 = theta1      # <<< guarded
-                #     wedge.theta2 = theta2      # <<< guarded
-                for robot, patch, wedge in zip(robots, robot_patches, robot_wedges):
+                for robot, patch, wedge, text in zip(robots, robot_patches, robot_wedges, robot_texts):
                     x, y, th = robot['rstate'][:3]
 
                     tr = Affine2D().rotate_deg_around(0, 0, math.degrees(th)).translate(x, y)
@@ -623,7 +621,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     th_deg = math.degrees(th)
                     wedge.theta1 = th_deg - FOV_DEG / 2
                     wedge.theta2 = th_deg + FOV_DEG / 2
-
+                    text.set_position((x, y + 0.4))
                 plt.pause(TIME_STEP)
 
 

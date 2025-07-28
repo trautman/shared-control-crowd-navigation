@@ -1,7 +1,7 @@
 # ─── Simulation‐level parameters ────────────────────────────────
 simulation:
   duration:         240.0      # seconds to run the whole sim
-  robot_delay:       10.0      # seconds before robot starts moving
+  robot_delay:       5.0      # seconds before robot starts moving
   goal_tolerance:    1.5      # m from goal considered "arrived"
   fov_deg:         104.0      # field‐of‐view in degrees
   fov_range:        2.0 #3.5       # FOV distance in meters
@@ -18,24 +18,20 @@ simulation:
 #   pause_between: 0.1  # seconds between frames
 
 # ─── Robot start, goal & algorithm choice ───────────────────────
-# robot:
-#   algorithm: BRNE       # either "BRNE" or "DWA"
-#   start:     [5.0, -5.0]
-#   goal:      [5.0,  5.0]
 robots:
   - name: robot1
-    algorithm: BRNE
+    algorithm: DWA
     start: [5.0, -5.0]
     goal: [5.0, 5.0]
-  - name: robot2
-    algorithm: DWA
-    start: [4.0, -5.0]
-    goal: [4.0, 6.0]
+  # - name: robot2
+  #   algorithm: BRNE
+  #   start: [4.0, -5.0]
+  #   goal: [4.0, 5.0]
 
 
 # ─── DWA parameters (only used if algorithm=="DWA") ────────────
 dwa:
-  max_speed:        0.6
+  max_speed:        0.5
   max_accel:        0.2
   max_yaw_rate:     1.0
   max_dyaw_rate:    0.785398  # ≈π/4
@@ -57,7 +53,7 @@ dwa:
 brne:
   # ── kinematic limits ───────────────────────────────
   max_speed:            0.5    # absolute cap on linear velocity
-  nominal_vel:          0.4    # “open‐space” cruising speed
+  nominal_vel:          0.5    # “open‐space” cruising speed
   max_yaw_rate:         1.0    # absolute cap on angular velocity
   open_space_velocity:  0.5
 
@@ -85,36 +81,36 @@ brne:
   brne_activate_threshold: 2.0 #originally 3.5
 
 # ─── Pedestrian spawners ────────────────────────────────────────
-spawn_mode: random
-ped_spawners:
-  - {}
-  - {}
-  - {}
-  - {}
-  - {}
-  - {}
+# spawn_mode: random
+# ped_spawners:
+#   - {}
+#   - {}
+#   - {}
+#   - {}
+#   - {}
+#   - {}
   # - {} #6 total,
   # - {} 
   # - {}
   # - {}
-spawn_rate_min: 1.5    # (Hz) slowest spawning
-spawn_rate_max: 6.0    # (Hz) fastest spawning
+# spawn_rate_min: 1.5    # (Hz) slowest spawning
+# spawn_rate_max: 6.0    # (Hz) fastest spawning
 
-# spawn_mode: fixed
-# ped_spawners:
-#   - pos:  [11.0,  6.0 ]  #right arm lower
-#     goal: [ 2.0,  2.0 ]
-#     schedule:
-#       - end: 2.0
-#         period: 3.0
-#       - end: 180.0
-#         period: 3.0
-#   - pos:  [ 3.0,  12.0 ]#top left arm
-#     goal: [ 5.0, -8.0 ]
-#     freq: 3.0
-#   - pos:  [ 3.0, -7.0 ]  # bottom left
-#     goal: [ 5.0,  17.0 ]
-#     freq: 3.0
+spawn_mode: fixed
+ped_spawners:
+  - pos:  [11.0,  6.0 ]  #right arm lower
+    goal: [ 2.0,  2.0 ]
+    schedule:
+      - end: 2.0
+        period: 3.0
+      - end: 180.0
+        period: 3.0
+  - pos:  [ 3.0,  12.0 ]#top left arm
+    goal: [ 5.0, -8.0 ]
+    freq: 3.0
+  - pos:  [ 3.0, -7.0 ]  # bottom left
+    goal: [ 5.0,  17.0 ]
+    freq: 3.0
 
 # ─── ORCA pedestrian parameters ───────────────────────
 orca:
