@@ -32,7 +32,6 @@ def add_walls(sim, walls):
             sim.addObstacle([corners[i], corners[(i+1)%4]])
     sim.processObstacles()
 
-
 def random_spawners_from_env(env_cfg, sim_cfg, robot_start=None):
     """
     Overrides the old uniform‐corridor sampling.
@@ -116,7 +115,6 @@ def random_spawners_from_env(env_cfg, sim_cfg, robot_start=None):
         spawners.append(Spawner(spawn, goal, sched))
 
     return spawners
-
 
 def run_sim(env_conf, sim_conf, gui=False, output_base=None):
     print(f"GUI = {'ON' if gui else 'OFF'}")
@@ -257,13 +255,8 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             print(f"Robot {robot['id']+1} algorithm = {robot['algo']}")
 
         add_walls(sim, walls)
-        # rid = sim.addAgent(tuple(start))
-        # sim.setAgentMaxSpeed(rid, max_spd)
-
+        
         # metrics storage
-        # density=[]
-        # safety_distances = []
-                # metrics storage
         density              = []
         safety_distances     = []
         translational_vels   = []
@@ -326,7 +319,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
 
             # now draw a single legend
             ax.legend(loc='upper left')
-
 
             scatter = ax.scatter([],[],s=50,zorder=4)
 
@@ -405,8 +397,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             )
             ax.legend(loc='upper left')
 
-
-
             gp_lines = []
             ne_lines = []
             frame_count = 0
@@ -465,9 +455,21 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     metrics['safety'].append(min([p['dist'] for p in vis], default=FOV_R))
 
                     # Control
+                    # if algo == 'DWA':
+                    #     obs = [sim.getAgentPosition(p['id']) for p in ped_agents if p['id'] != rid]
+                    #     ctl.cfg['current_v'] = rstate[3]
+                    #     v, w = ctl.control(rstate, goal, obs)
                     if algo == 'DWA':
-                        # obs = [p['pos'] for p in ped_agents if p['id'] != rid]
-                        obs = [sim.getAgentPosition(p['id']) for p in ped_agents if p['id'] != rid]
+                        # Only consider obstacles (agents) in FOV
+                        obs = [
+                            sim.getAgentPosition(a['id'])
+                            for a in ped_agents
+                            if np.linalg.norm(sim.getAgentPosition(a['id']) - np.array(rstate[:2])) <= FOV_R
+                            and abs((math.degrees(math.atan2(
+                                sim.getAgentPosition(a['id'])[1] - rstate[1],
+                                sim.getAgentPosition(a['id'])[0] - rstate[0]
+                            ) - rstate[2]) + 180) % 360 - 180) <= FOV_DEG / 2
+                        ]
                         ctl.cfg['current_v'] = rstate[3]
                         v, w = ctl.control(rstate, goal, obs)
                     else:
@@ -476,17 +478,17 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                             for a in ped_agents
                         ]
                         v, w = ctl.control(rstate, goal, ped_list_fov)
-
                     v = np.clip(v, -ctl.cfg['max_speed'], ctl.cfg['max_speed'])
                     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
-                    sim.setAgentPrefVelocity(rid, (v * math.cos(th), v * math.sin(th)))
-
-                    # # Update robot state
-                    # rstate[0] += v * math.cos(rstate[2]) * TIME_STEP
-                    # rstate[1] += v * math.sin(rstate[2]) * TIME_STEP
-                    # rstate[2] += w * TIME_STEP
-                    # rstate[2] = (rstate[2] + math.pi) % (2 * math.pi) - math.pi
-                    # rstate[3], rstate[4] = v, w
+                    # store for per-robot state update
+                    robot['last_cmd'] = (v, w)
+                    
+                    robot_th = robot['rstate'][2]
+                    sim.setAgentPrefVelocity(
+                        rid,
+                        (v * math.cos(robot_th),
+                        v * math.sin(robot_th))
+                    )
 
                     sim.setAgentPosition(rid, (rstate[0], rstate[1]))
 
@@ -499,74 +501,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     metrics['elapsed'].append(TIME_STEP)
                     metrics['stopped'].append(0.0 if abs(v) > 1e-3 or abs(w) > 1e-3 else TIME_STEP)
                     metrics['prev_pos'] = cur_pos
-
-                # cnt = sum(1 for p in vis if p['dist']<=FOV_R)
-                # density.append(cnt / fov_area)
-                # # safety: minimum distance to any ped in FOV (or FOV_R if none)
-                # if vis:
-                #     min_d = min(p['dist'] for p in vis)
-                # else:
-                #     min_d = FOV_R
-                # safety_distances.append(min_d)
-
-
-                #            # record new metrics
-                # translational_vels.append(v)
-                # time_elapsed_list.append(dt)
-                # cur_pos = sim.getAgentPosition(rid)
-                # dx, dy = cur_pos[0] - prev_pos[0], cur_pos[1] - prev_pos[1]
-                # dist = math.hypot(dx, dy)
-                # dist_traveled.append(dist)
-                # prev_pos = cur_pos
-                # if abs(v) < 1e-3 and abs(w) < 1e-3:
-                #     time_not_moving_list.append(dt)
-                # else:
-                #     time_not_moving_list.append(0.0)
-
-
-                # if any(p['dist']<=close_th for p in vis):
-                #     v,w = 0.0,0.0
-                # else:
-                #     ped_list_ctrl = [
-                #         {'id': a['id'],
-                #          'pos': sim.getAgentPosition(a['id']),
-                #          'goal': a['goal']}
-                #         for a in ped_agents
-                #     ] 
-
-                #     # 2) FOV filter (shared)
-                #     rx, ry, rth = rstate[:3]
-                #     ped_list_fov = []
-                #     for p in ped_list_ctrl:
-                #         dx, dy = p['pos'][0] - rx, p['pos'][1] - ry
-                #         dist    = math.hypot(dx, dy)
-                #         ang     = math.degrees(math.atan2(dy, dx) - rth)
-                #         rel     = (ang + 180) % 360 - 180
-                #         if dist <= FOV_R and abs(rel) <= FOV_DEG/2:
-                #             ped_list_fov.append(p)
-
-                #     if algo == 'DWA':
-                #         obs = [p['pos'] for p in ped_list_fov]
-                #         robot_ctl.cfg['current_v'] = rstate[3]
-                #         v, w = robot_ctl.control(rstate, goal, obs)
-                #     else:
-                #             # note: BRNEController expects dicts with 'pos' and 'goal'
-                #         t0 = time.perf_counter()
-                #         v, w = robot_ctl.control(rstate, goal, ped_list_fov)
-                #         t1 = time.perf_counter()
-                #         # you can log (t1-t0) if you like
-
-                #         # clip & apply
-                #         v = np.clip(v, -max_spd, max_spd)
-                #         w = np.clip(w, -max_yaw, max_yaw)
-                #         sim.setAgentPrefVelocity(
-                #             rid,
-                #             (v * math.cos(rstate[2]), v * math.sin(rstate[2]))
-                #         )  
-
-                # v = np.clip(v,-max_spd,max_spd)
-                # w = np.clip(w,-max_yaw,max_yaw)
-                # sim.setAgentPrefVelocity(rid, (v*math.cos(th), v*math.sin(th)))
             else:
                 v,w = 0.0, 0.0
                 sim.setAgentPrefVelocity(rid,(0.0,0.0))
@@ -578,35 +512,42 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                 pv = tuple((vec/dd)*agent_speed if dd>1e-3 else (0.0,0.0))
                 sim.setAgentPrefVelocity(a['id'],pv)
 
-            # step
             sim.doStep()
 
-            # override robot state
-            th = rstate[2]
-            rstate[0] += v*math.cos(th)*TIME_STEP
-            rstate[1] += v*math.sin(th)*TIME_STEP
-            rstate[2] += w*TIME_STEP
-            rstate[2] = (rstate[2]+math.pi)%(2*math.pi)-math.pi
-            rstate[3], rstate[4] = v,w
-            sim.setAgentPosition(rid,(rstate[0],rstate[1]))
-            sim.setAgentVelocity(rid,(v*math.cos(rstate[2]),v*math.sin(rstate[2])))
+            # now update each robot’s state and ORCA agent
+            for robot in robots:
+                rid    = robot['rid']
+                rstate = robot['rstate']
+                v, w   = robot['last_cmd']
+
+                # integrate motion
+                th = rstate[2]
+                rstate[0] += v * math.cos(th) * TIME_STEP
+                rstate[1] += v * math.sin(th) * TIME_STEP
+                rstate[2] = (rstate[2] + w * TIME_STEP + math.pi) % (2*math.pi) - math.pi
+                rstate[3], rstate[4] = v, w
+
+                # push to ORCA sim
+                sim.setAgentPosition(rid, (rstate[0], rstate[1]))
+                sim.setAgentVelocity(rid, (v*math.cos(rstate[2]), v*math.sin(rstate[2])))
 
             # GUI update
             if gui:
-
-                # build positions + per-agent colors based on FOV
-                pts = [sim.getAgentPosition(a['id']) for a in ped_agents]
+                # build positions + per-agent colors based on ANY robot’s FOV
+                pts    = [sim.getAgentPosition(a['id']) for a in ped_agents]
                 colors = []
-                rx, ry, rth = rstate[:3]
-                for (x, y), a in zip(pts, ped_agents):
-                    dx, dy = x - rx, y - ry
-                    dist    = math.hypot(dx, dy)
-                    rel_ang = (math.degrees(math.atan2(dy, dx) - rth) + 180) % 360 - 180
-                    # red if in FOV, else gray
-                    if dist <= FOV_R and abs(rel_ang) <= FOV_DEG/2:
-                        colors.append('red')
-                    else:
-                        colors.append('gray')
+                for (x,y), a in zip(pts, ped_agents):
+                    in_any_fov = False
+                    # check each robot’s wedge
+                    for robot in robots:
+                        rx, ry, rth = robot['rstate'][:3]
+                        dx, dy  = x - rx, y - ry
+                        dist    = math.hypot(dx, dy)
+                        rel_ang = (math.degrees(math.atan2(dy, dx) - rth) + 180) % 360 - 180
+                        if dist <= FOV_R and abs(rel_ang) <= FOV_DEG/2:
+                            in_any_fov = True
+                            break
+                    colors.append('red' if in_any_fov else 'gray')
                 if pts:
                     scatter.set_offsets(pts)
                     scatter.set_color(colors)
@@ -623,8 +564,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     wedge.theta2 = th_deg + FOV_DEG / 2
                     text.set_position((x, y + 0.4))
                 plt.pause(TIME_STEP)
-
-
 
             # prune
             ped_agents = [a for a in ped_agents
@@ -664,44 +603,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             save_metric("path_length", metrics['path_len'])
             save_metric("travel_time", metrics['elapsed'])
             save_metric("time_not_moving", metrics['stopped'])
-
-        # # write density metrics
-        # outpath = os.path.join(out_dir, f"density_trial_{trial}.txt")
-        # with open(outpath, 'w') as f:
-        #     for ρ in density:
-        #         f.write(f"{ρ:.6f}\n")
-        # print(f"Trial {trial} {'OK' if achieved else 'FAIL'} → {outpath}")
-
-        # # write safety‐distance metrics
-        # safe_out = os.path.join(safety_dir, f"safety_distances_trial_{trial}.txt")
-        # with open(safe_out, 'w') as f:
-        #     for d in safety_distances:
-        #         f.write(f"{d:.6f}\n")
-        # print(f"Safety distances saved to {safe_out}")
-
-        #         # write translational velocities
-        # tv_out = os.path.join(trans_vel_dir, f"translational_velocity_trial_{trial}.txt")
-        # with open(tv_out, 'w') as f:
-        #     for tv in translational_vels:
-        #         f.write(f"{tv:.6f}\n")
-
-        # # write path lengths
-        # pl_out = os.path.join(path_len_dir, f"path_length_trial_{trial}.txt")
-        # with open(pl_out, 'w') as f:
-        #     for d in dist_traveled:
-        #         f.write(f"{d:.6f}\n")
-
-        # # write elapsed times
-        # te_out = os.path.join(time_dir, f"travel_time_trial_{trial}.txt")
-        # with open(te_out, 'w') as f:
-        #     for te in time_elapsed_list:
-        #         f.write(f"{te:.6f}\n")
-
-        # # write time-not-moving
-        # tn_out = os.path.join(stop_time_dir, f"time_not_moving_trial_{trial}.txt")
-        # with open(tn_out, 'w') as f:
-        #     for tm in time_not_moving_list:
-        #         f.write(f"{tm:.6f}\n")
 
         if gui:
             plt.clf()
