@@ -114,3 +114,19 @@ class DWAController:
         y += v * math.sin(th) * self.dt
         th += w * self.dt
         return [x, y, th, v, w]
+    
+    def generate_trajectories(self, robot_state, goal, obs):
+        """
+        Re-run DWA sampling logic to get candidate trajectories for visualization.
+        Returns: list of trajectories, each a list of (x, y) points.
+        """
+        v_min, v_max, w_min, w_max = self.calc_dynamic_window(robot_state)
+        sampled_trajs = []
+
+        for v in np.linspace(v_min, v_max, self.cfg['v_samples']):
+            for w in np.linspace(w_min, w_max, self.cfg['w_samples']):
+                traj = self.predict_trajectory(robot_state, v, w)
+                sampled_trajs.append(traj)
+
+        return sampled_trajs
+

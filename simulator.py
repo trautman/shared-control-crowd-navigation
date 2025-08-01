@@ -122,6 +122,9 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
     print(f"GUI = {'ON' if gui else 'OFF'}")
     env_cfg = load_config(env_conf)
     sim_cfg = load_config(sim_conf)
+    vis_dwa = sim_cfg.get('visualization', {}).get('dwa', False)
+    vis_brne = sim_cfg.get('visualization', {}).get('brne', False)
+
     env_cfg['_env_file'] = os.path.basename(env_conf).lower()
 
 
@@ -281,7 +284,10 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
         # GUI setup
         if gui:
             plt.ion()
-            fig,ax = plt.subplots(figsize=(8,8))
+            mag = sim_cfg.get("simulation", {}).get("sim_size_magnification", 1.0)
+            fig, ax = plt.subplots(figsize=(8 * mag, 8 * mag))
+
+            # fig,ax = plt.subplots(figsize=(12,12))
             ax.set_aspect('equal')
 
             # floors & walls
@@ -439,7 +445,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             # robot control
             prev = list(rstate)
             if t>=robot_delay:
-                    
                 for robot in robots:
                     ctl = robot['ctl']
                     algo = robot['algo']
@@ -451,7 +456,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     metrics = robot['metrics']
 
                     rx, ry, th = rstate[:3]
-                    in_fov = []  # ✅ All pedestrian data for agents in this robot's FOV
+                    in_fov = []
                     for a in ped_agents:
                         px, py = sim.getAgentPosition(a['id'])
                         dx, dy = px - rx, py - ry
@@ -466,19 +471,62 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                                 'dist': d
                             })
 
-                    # ✅ Use for density/safety
-                    fov_area = (fov_deg / 360.0) * math.pi * (fov_range ** 2)
-                    metrics['density'].append(len(in_fov) / fov_area)
-                    metrics['safety'].append(min([p['dist'] for p in in_fov], default=fov_range))
-
-                    # ✅ Use for control input
                     if algo == 'DWA':
                         obs = [p['pos'] for p in in_fov]
                         ctl.cfg['current_v'] = rstate[3]
                         v, w = ctl.control(rstate, goal, obs)
+                        if vis_dwa and 'ax' in locals():
+                            visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
                     else:
                         ped_list_fov = [{'id': p['id'], 'pos': p['pos'], 'goal': p['goal']} for p in in_fov]
                         v, w = ctl.control(rstate, goal, ped_list_fov)
+                        if vis_brne and 'ax' in locals():
+                            visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
+
+                # for robot in robots:
+                #     ctl = robot['ctl']
+                #     algo = robot['algo']
+                #     goal = robot['goal']
+                #     rstate = robot['rstate']
+                #     fov_range = robot['fov_range']
+                #     fov_deg = robot['fov_deg']
+                #     rid = robot['rid']
+                #     metrics = robot['metrics']
+
+                #     rx, ry, th = rstate[:3]
+                #     in_fov = []  # ✅ All pedestrian data for agents in this robot's FOV
+                #     for a in ped_agents:
+                #         px, py = sim.getAgentPosition(a['id'])
+                #         dx, dy = px - rx, py - ry
+                #         d = math.hypot(dx, dy)
+                #         ang = math.degrees(math.atan2(dy, dx) - th)
+                #         rel = (ang + 180) % 360 - 180
+                #         if d <= fov_range and abs(rel) <= fov_deg / 2:
+                #             in_fov.append({
+                #                 'id': a['id'],
+                #                 'pos': (px, py),
+                #                 'goal': a['goal'],
+                #                 'dist': d
+                #             })
+
+                #     # ✅ Use for density/safety
+                #     fov_area = (fov_deg / 360.0) * math.pi * (fov_range ** 2)
+                #     metrics['density'].append(len(in_fov) / fov_area)
+                #     metrics['safety'].append(min([p['dist'] for p in in_fov], default=fov_range))
+
+                #     if algo == 'DWA':
+                #         obs = [p['pos'] for p in in_fov]
+                #         ctl.cfg['current_v'] = rstate[3]
+                #         v, w = ctl.control(rstate, goal, obs)
+                #         if vis_dwa and 'ax' in locals():
+                #             visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
+                #     else:
+                #         ped_list_fov = [{'id': p['id'], 'pos': p['pos'], 'goal': p['goal']} for p in in_fov]
+                #         v, w = ctl.control(rstate, goal, ped_list_fov)
+                #         if vis_brne and 'ax' in locals():
+                #             visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
+
+
 
                     # ✅ Clamp and record
                     v = np.clip(v, -ctl.cfg['max_speed'], ctl.cfg['max_speed'])
@@ -491,66 +539,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                         (v * math.cos(robot_th),
                         v * math.sin(robot_th))
                     )
-
-
-
-                # for robot in robots:
-                #     ctl = robot['ctl']
-                #     algo = robot['algo']
-                #     goal = robot['goal']
-                #     rstate = robot['rstate']
-                #     fov_range = robot['fov_range']
-                #     fov_deg = robot['fov_deg']
-                #     rid = robot['rid']
-                #     metrics = robot['metrics']
-
-                #     vis = []
-                #     rx, ry, th = rstate[:3]
-                #     for a in ped_agents:
-                #         px, py = sim.getAgentPosition(a['id'])
-                #         dx, dy = px - rx, py - ry
-                #         d = math.hypot(dx, dy)
-                #         ang = math.degrees(math.atan2(dy, dx) - th)
-                #         rel = (ang + 180) % 360 - 180
-                #         if d <= fov_range and abs(rel) <= fov_deg / 2:
-                #             vis.append({'dist': d, 'goal': a['goal']})
-
-                 
-                #     fov_area = (fov_deg / 360.0) * math.pi * (fov_range ** 2)
-                #     cnt = sum(1 for p in vis if p['dist'] <= fov_range)
-                #     metrics['density'].append(cnt / fov_area)
-                #     metrics['safety'].append(min([p['dist'] for p in vis], default=fov_range))
-
-                #     if algo == 'DWA':
-                #         # Only consider obstacles (agents) in FOV
-                #         obs = []
-                #         for a in ped_agents:
-                #             pos = np.array(sim.getAgentPosition(a['id']))
-                #             dx, dy = pos[0] - rstate[0], pos[1] - rstate[1]
-                #             d = np.hypot(dx, dy)
-                #             angle = math.degrees(math.atan2(dy, dx) - rstate[2])
-                #             rel_ang = (angle + 180) % 360 - 180
-                #             if d <= fov_range and abs(rel_ang) <= fov_deg / 2:
-                #                 obs.append(tuple(pos))
-                #         ctl.cfg['current_v'] = rstate[3]
-                #         v, w = ctl.control(rstate, goal, obs)
-                #     else:
-                #         ped_list_fov = [
-                #             {'id': a['id'], 'pos': sim.getAgentPosition(a['id']), 'goal': a['goal']}
-                #             for a in ped_agents
-                #         ]
-                #         v, w = ctl.control(rstate, goal, ped_list_fov)
-                #     v = np.clip(v, -ctl.cfg['max_speed'], ctl.cfg['max_speed'])
-                #     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
-                #     # store for per-robot state update
-                #     robot['last_cmd'] = (v, w)
-                    
-                #     robot_th = robot['rstate'][2]
-                #     sim.setAgentPrefVelocity(
-                #         rid,
-                #         (v * math.cos(robot_th),
-                #         v * math.sin(robot_th))
-                #     )
 
                     sim.setAgentPosition(rid, (rstate[0], rstate[1]))
 
