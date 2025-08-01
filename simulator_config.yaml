@@ -13,18 +13,26 @@ simulation:
   report_interval: 30.0
   sim_size_magnification: 1.5
 # ─── PLAN VISUALIZATION ───────────────────────
+# visualization:
+#   dwa: true        # turn DWA viz on/off
+#   brne: true      # turn BRNE viz on/off
+#   pause_between: 0.1  # seconds between frames
 visualization:
-  dwa: true        # turn DWA viz on/off
-  brne: true      # turn BRNE viz on/off
-  pause_between: 0.1  # seconds between frames
+  dwa:
+    all_samples: false
+    optima: true
+  brne:
+    all_samples: false
+    optima: true
+  pause_between: 0.1
 
 # ─── Robot start, goal & algorithm choice ───────────────────────
 
 robots:
   - name: robot1
     algorithm: DWA
-    start: [2.0, -5.0]
-    goal: [2.0, 5.0]
+    start: [4.0, -5.0]
+    goal: [4.0, 5.0]
     fov:
       degree: 104
       range: 2.0
@@ -44,7 +52,7 @@ dwa:
   max_yaw_rate:     1.0
   max_dyaw_rate:    0.785398  # ≈π/4
   dt:               0.1
-  predict_time:     3.0
+  predict_time:     3.0 #3.0 default
   v_samples:        7
   w_samples:        11
   # heading_weight:   0.2
@@ -72,7 +80,7 @@ brne:
 
   gp:
     tsteps:             25
-    horizon:            2.0
+    horizon:            2.0 
     kernel_a1:          0.01  #kernel_a1:original 0.2  0.01    # ↓ lower → broader GP
     kernel_a2:          2.0  #kernel_a2:original 0.2  2.0     # ↓ lower → broader GP
     obs_noise:          [0.0001, 0.0001] #started with [1e-4, 1e-4]

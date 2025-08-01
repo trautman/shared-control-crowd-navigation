@@ -470,18 +470,25 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                                 'goal': a['goal'],
                                 'dist': d
                             })
-
+                    viz_cfg = sim_cfg.get("visualization", {})
+                    brne_viz_cfg = viz_cfg.get("brne", {}) if isinstance(viz_cfg.get("brne", {}), dict) else {}
+                    dwa_viz_cfg  = viz_cfg.get("dwa", {}) if isinstance(viz_cfg.get("dwa", {}), dict) else {}
                     if algo == 'DWA':
                         obs = [p['pos'] for p in in_fov]
                         ctl.cfg['current_v'] = rstate[3]
                         v, w = ctl.control(rstate, goal, obs)
+                        # if vis_dwa and 'ax' in locals():
+                        #     visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
                         if vis_dwa and 'ax' in locals():
-                            visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
+                            visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'], cfg=dwa_viz_cfg)
                     else:
                         ped_list_fov = [{'id': p['id'], 'pos': p['pos'], 'goal': p['goal']} for p in in_fov]
                         v, w = ctl.control(rstate, goal, ped_list_fov)
+                        # if vis_brne and 'ax' in locals():
+                        #     visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
                         if vis_brne and 'ax' in locals():
-                            visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
+                            visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'], cfg=brne_viz_cfg)
+
 
                 # for robot in robots:
                 #     ctl = robot['ctl']
