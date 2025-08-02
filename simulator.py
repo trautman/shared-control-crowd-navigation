@@ -159,8 +159,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
     duration    = S['duration']
     robot_delay = S['robot_delay']
     goal_tol    = S['goal_tolerance']
-    # FOV_DEG     = S['fov_deg']
-    # FOV_R       = S['fov_range']
     close_th    = S['close_stop_threshold']
     agent_speed = S.get('agent_speed',1.0)
     n_trials    = S.get('n_trials',1)
@@ -168,21 +166,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
     robot_cfgs = sim_cfg['robots']  # list of dicts
 
     base = output_base or '.'
-
-    out_dir       = os.path.join(base, 'density')
-    safety_dir    = os.path.join(base, 'safety_distances')
-    trans_vel_dir = os.path.join(base, 'translational_velocity')
-    path_len_dir  = os.path.join(base, 'path_length')
-    time_dir      = os.path.join(base, 'travel_time')
-    stop_time_dir = os.path.join(base, 'time_not_moving')
-
-    os.makedirs(out_dir, exist_ok=True)
-    os.makedirs(safety_dir, exist_ok=True)
-    os.makedirs(trans_vel_dir, exist_ok=True)
-    os.makedirs(path_len_dir, exist_ok=True)
-    os.makedirs(time_dir, exist_ok=True)
-    os.makedirs(stop_time_dir, exist_ok=True)
-
 
     for trial in range(1, n_trials+1):
         print(f"\n=== Trial {trial}/{n_trials} ===")
@@ -386,14 +369,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
 
             plt.draw(); plt.pause(0.001)
             frame_count = 0
-            
-            # ── Pre-allocate GP & NE collections ───────────────────────────────
-            # (LineCollection already imported at top of file)
-            # gp_collection = LineCollection(
-            #     [], linewidths=1, alpha=0.3, colors='red', zorder=2
-            # )
-            # ax.add_collection(gp_collection)
-            
+ 
             ne_collection = LineCollection(
                 [], linewidths=2, colors='black', zorder=3
             )
@@ -440,7 +416,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                 rel = (ang + 180) % 360 - 180
                 if d <= fov_range and abs(rel) <= fov_deg / 2:
                     vis.append({'dist': d, 'goal': a['goal']})
-
 
             # robot control
             prev = list(rstate)
@@ -490,55 +465,47 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                             visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'], cfg=brne_viz_cfg)
 
 
-                # for robot in robots:
-                #     ctl = robot['ctl']
-                #     algo = robot['algo']
-                #     goal = robot['goal']
-                #     rstate = robot['rstate']
-                #     fov_range = robot['fov_range']
-                #     fov_deg = robot['fov_deg']
-                #     rid = robot['rid']
-                #     metrics = robot['metrics']
-
-                #     rx, ry, th = rstate[:3]
-                #     in_fov = []  # ✅ All pedestrian data for agents in this robot's FOV
-                #     for a in ped_agents:
-                #         px, py = sim.getAgentPosition(a['id'])
-                #         dx, dy = px - rx, py - ry
-                #         d = math.hypot(dx, dy)
-                #         ang = math.degrees(math.atan2(dy, dx) - th)
-                #         rel = (ang + 180) % 360 - 180
-                #         if d <= fov_range and abs(rel) <= fov_deg / 2:
-                #             in_fov.append({
-                #                 'id': a['id'],
-                #                 'pos': (px, py),
-                #                 'goal': a['goal'],
-                #                 'dist': d
-                #             })
-
-                #     # ✅ Use for density/safety
-                #     fov_area = (fov_deg / 360.0) * math.pi * (fov_range ** 2)
-                #     metrics['density'].append(len(in_fov) / fov_area)
-                #     metrics['safety'].append(min([p['dist'] for p in in_fov], default=fov_range))
-
-                #     if algo == 'DWA':
-                #         obs = [p['pos'] for p in in_fov]
-                #         ctl.cfg['current_v'] = rstate[3]
-                #         v, w = ctl.control(rstate, goal, obs)
-                #         if vis_dwa and 'ax' in locals():
-                #             visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
-                #     else:
-                #         ped_list_fov = [{'id': p['id'], 'pos': p['pos'], 'goal': p['goal']} for p in in_fov]
-                #         v, w = ctl.control(rstate, goal, ped_list_fov)
-                #         if vis_brne and 'ax' in locals():
-                #             visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
-
-
 
                     # ✅ Clamp and record
                     v = np.clip(v, -ctl.cfg['max_speed'], ctl.cfg['max_speed'])
                     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
                     robot['last_cmd'] = (v, w)
+
+                    # ─── Safety distance: min dist to any pedestrian ───
+                    # rx, ry = rstate[0], rstate[1]
+                    # min_dist = float('inf')
+                    # for a in ped_agents:
+                    #     px, py = sim.getAgentPosition(a['id'])
+                    #     dist = math.hypot(px - rx, py - ry)
+                    #     if dist < min_dist:
+                    #         min_dist = dist
+                    # metrics['safety'].append(min_dist)
+
+                    # ─── FIXED: Safety distance for each robot ───
+                    rx, ry = robot['rstate'][0], robot['rstate'][1]
+                    min_dist = float('inf')
+                    for a in ped_agents:
+                        px, py = sim.getAgentPosition(a['id'])
+                        dist = math.hypot(px - rx, py - ry)
+                        if dist < min_dist:
+                            min_dist = dist
+                    # Clamp extreme values (optional, avoids inf/nan propagation)
+                    if not np.isfinite(min_dist):
+                        min_dist = 999.0
+                    robot['metrics']['safety'].append(min_dist)
+
+
+                    # ─── Density: number of agents in FOV per m² ───
+                    fov_area = (robot['fov_deg'] / 360.0) * math.pi * (robot['fov_range'] ** 2)
+                    agents_in_fov = sum(
+                        1 for a in ped_agents
+                        if math.hypot(sim.getAgentPosition(a['id'])[0] - rx,
+                                    sim.getAgentPosition(a['id'])[1] - ry) <= robot['fov_range']
+                    )
+                    density = agents_in_fov / fov_area if fov_area > 0 else 0.0
+                    metrics['density'].append(density)
+
+
 
                     robot_th = robot['rstate'][2]
                     sim.setAgentPrefVelocity(
@@ -652,10 +619,13 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
         for robot in robots:
             i = robot['id'] + 1  # robot1 = 1
             metrics = robot['metrics']
-            prefix = f"trial_{trial}_robot{i}"
+            robot_dir = os.path.join(base, f"robot_{i}")
+            os.makedirs(robot_dir, exist_ok=True)
 
             def save_metric(name, data):
-                out = os.path.join(base, name, f"{name}_{prefix}.txt")
+                subdir = os.path.join(robot_dir, name)
+                os.makedirs(subdir, exist_ok=True)
+                out = os.path.join(subdir, f"{name}_trial_{trial}.txt")
                 with open(out, 'w') as f:
                     for val in data:
                         f.write(f"{val:.6f}\n")
@@ -666,6 +636,7 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             save_metric("path_length", metrics['path_len'])
             save_metric("travel_time", metrics['elapsed'])
             save_metric("time_not_moving", metrics['stopped'])
+
 
         if gui:
             plt.clf()
