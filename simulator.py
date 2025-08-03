@@ -403,7 +403,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     ped_agents.append({'id':aid,'goal':sp.goal})
                     sp.last_spawn = t
 
-
             fov_deg = robot['fov_deg']
             fov_range = robot['fov_range']
             vis = []
@@ -452,60 +451,50 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                         obs = [p['pos'] for p in in_fov]
                         ctl.cfg['current_v'] = rstate[3]
                         v, w = ctl.control(rstate, goal, obs)
-                        # if vis_dwa and 'ax' in locals():
-                        #     visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'])
                         if vis_dwa and 'ax' in locals():
                             visualize_dwa(rstate, goal, obs, ctl, ax=ax, color=robot['color'], cfg=dwa_viz_cfg)
                     else:
                         ped_list_fov = [{'id': p['id'], 'pos': p['pos'], 'goal': p['goal']} for p in in_fov]
                         v, w = ctl.control(rstate, goal, ped_list_fov)
-                        # if vis_brne and 'ax' in locals():
-                        #     visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'])
                         if vis_brne and 'ax' in locals():
                             visualize_brne(rstate, goal, ped_list_fov, ctl, ax=ax, color=robot['color'], cfg=brne_viz_cfg)
-
-
 
                     # ✅ Clamp and record
                     v = np.clip(v, -ctl.cfg['max_speed'], ctl.cfg['max_speed'])
                     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
                     robot['last_cmd'] = (v, w)
 
-                    # ─── Safety distance: min dist to any pedestrian ───
-                    # rx, ry = rstate[0], rstate[1]
-                    # min_dist = float('inf')
-                    # for a in ped_agents:
-                    #     px, py = sim.getAgentPosition(a['id'])
-                    #     dist = math.hypot(px - rx, py - ry)
-                    #     if dist < min_dist:
-                    #         min_dist = dist
-                    # metrics['safety'].append(min_dist)
-
-                    # ─── FIXED: Safety distance for each robot ───
                     rx, ry = robot['rstate'][0], robot['rstate'][1]
-                    min_dist = float('inf')
+                    distances = []
                     for a in ped_agents:
                         px, py = sim.getAgentPosition(a['id'])
                         dist = math.hypot(px - rx, py - ry)
-                        if dist < min_dist:
-                            min_dist = dist
-                    # Clamp extreme values (optional, avoids inf/nan propagation)
-                    if not np.isfinite(min_dist):
-                        min_dist = 999.0
+                        distances.append(dist)
+
+                    if distances:
+                        min_dist = min(distances)
+                    else:
+                        min_dist = 10.0  # default safety distance if no pedestrians present
+
                     robot['metrics']['safety'].append(min_dist)
 
+                    if not np.isfinite(min_dist):
+                        min_dist = 5.0
+                    robot['metrics']['safety'].append(min_dist)
 
                     # ─── Density: number of agents in FOV per m² ───
                     fov_area = (robot['fov_deg'] / 360.0) * math.pi * (robot['fov_range'] ** 2)
-                    agents_in_fov = sum(
-                        1 for a in ped_agents
-                        if math.hypot(sim.getAgentPosition(a['id'])[0] - rx,
-                                    sim.getAgentPosition(a['id'])[1] - ry) <= robot['fov_range']
-                    )
-                    density = agents_in_fov / fov_area if fov_area > 0 else 0.0
-                    metrics['density'].append(density)
-
-
+                    agents_in_fov = 0
+                    for a in ped_agents:
+                        px, py = sim.getAgentPosition(a['id'])
+                        dx, dy = px - rx, py - ry
+                        d = math.hypot(dx, dy)
+                        angle = math.degrees(math.atan2(dy, dx) - robot['rstate'][2])
+                        angle = (angle + 180) % 360 - 180
+                        if d <= robot['fov_range'] and abs(angle) <= robot['fov_deg'] / 2:
+                            agents_in_fov += 1
+                    density_val = agents_in_fov / fov_area if fov_area > 0 else 0.0
+                    metrics['density'].append(density_val)
 
                     robot_th = robot['rstate'][2]
                     sim.setAgentPrefVelocity(
@@ -516,10 +505,9 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
 
                     sim.setAgentPosition(rid, (rstate[0], rstate[1]))
 
-                    # Log metrics
-                    cur_pos = sim.getAgentPosition(rid)
+                    cur_pos = (robot['rstate'][0], robot['rstate'][1])
                     dx, dy = cur_pos[0] - metrics['prev_pos'][0], cur_pos[1] - metrics['prev_pos'][1]
-                    dist = math.hypot(dx, dy)
+                    dist = math.hypot(dx, dy)                    
                     metrics['path_len'].append(dist)
                     metrics['trans_vel'].append(v)
                     metrics['elapsed'].append(TIME_STEP)
@@ -636,8 +624,6 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
             save_metric("path_length", metrics['path_len'])
             save_metric("travel_time", metrics['elapsed'])
             save_metric("time_not_moving", metrics['stopped'])
-
-
         if gui:
             plt.clf()
 

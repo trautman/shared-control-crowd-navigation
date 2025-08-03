@@ -38,7 +38,7 @@ robots:
       range: 2.0
 
   - name: robot2
-    algorithm: DWA
+    algorithm: BRNE
     start: [5.0, -5.0]
     goal:  [5.0, 5.0]
     fov:
