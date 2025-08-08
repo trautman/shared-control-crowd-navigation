@@ -464,22 +464,17 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     w = np.clip(w, -ctl.cfg['max_yaw_rate'], ctl.cfg['max_yaw_rate'])
                     robot['last_cmd'] = (v, w)
 
-                    rx, ry = robot['rstate'][0], robot['rstate'][1]
-                    distances = []
-                    for a in ped_agents:
-                        px, py = sim.getAgentPosition(a['id'])
-                        dist = math.hypot(px - rx, py - ry)
-                        distances.append(dist)
+                    # if ped_list_fov:
+                    #     min_dist = min(p['dist'] for p in ped_list_fov)
+                    # else:
+                    #     min_dist = robot['fov_range']      # fallback = your configured FOV radius
+                    # robot['metrics']['safety'].append(min_dist)
 
-                    if distances:
-                        min_dist = min(distances)
+                    # Safety: minimum distance to any ped in FOV (or fov_range if none)
+                    if in_fov:
+                        min_dist = min(p['dist'] for p in in_fov)
                     else:
-                        min_dist = 10.0  # default safety distance if no pedestrians present
-
-                    robot['metrics']['safety'].append(min_dist)
-
-                    if not np.isfinite(min_dist):
-                        min_dist = 5.0
+                        min_dist = robot['fov_range']
                     robot['metrics']['safety'].append(min_dist)
 
                     # ─── Density: number of agents in FOV per m² ───
@@ -509,7 +504,14 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                     dx, dy = cur_pos[0] - metrics['prev_pos'][0], cur_pos[1] - metrics['prev_pos'][1]
                     dist = math.hypot(dx, dy)                    
                     metrics['path_len'].append(dist)
-                    metrics['trans_vel'].append(v)
+                    # Record actual translational speed (moved distance ÷ time step)
+                    prev = metrics['prev_pos']
+                    cur  = (robot['rstate'][0], robot['rstate'][1])
+                    dx, dy = cur[0] - prev[0], cur[1] - prev[1]
+                    actual_v = math.hypot(dx, dy) / TIME_STEP
+                    metrics['trans_vel'].append(actual_v)
+
+                    # metrics['elapsed'].append(t)
                     metrics['elapsed'].append(TIME_STEP)
                     metrics['stopped'].append(0.0 if abs(v) > 1e-3 or abs(w) > 1e-3 else TIME_STEP)
                     metrics['prev_pos'] = cur_pos
@@ -604,10 +606,15 @@ def run_sim(env_conf, sim_conf, gui=False, output_base=None):
                 )
                 next_report += report_interval
 
+        # for robot in robots:
+        #     i = robot['id'] + 1  # robot1 = 1
+        #     metrics = robot['metrics']
+        #     robot_dir = os.path.join(base, f"robot_{i}")
         for robot in robots:
             i = robot['id'] + 1  # robot1 = 1
+            algo = robot['algo'].lower()
             metrics = robot['metrics']
-            robot_dir = os.path.join(base, f"robot_{i}")
+            robot_dir = os.path.join(base, f"robot_{i}_{algo}")
             os.makedirs(robot_dir, exist_ok=True)
 
             def save_metric(name, data):

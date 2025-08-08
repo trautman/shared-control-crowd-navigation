@@ -27,7 +27,6 @@ visualization:
   pause_between: 0.1
 
 # ─── Robot start, goal & algorithm choice ───────────────────────
-
 robots:
   - name: robot1
     algorithm: DWA
@@ -44,7 +43,7 @@ robots:
     fov:
       degree: 104
       range: 2.0
-
+ 
 # ─── DWA parameters (only used if algorithm=="DWA") ────────────
 dwa:
   max_speed:        0.5
