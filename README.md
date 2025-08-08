@@ -1,24 +1,30 @@
+# Shared Control Crowd Navigation Simulator
 
-# Crowd Navigation Simulator
+A Python-based simulator for evaluating shared control policies in crowded environments. Built on top of the original [crowd-navigation-simulator](https://github.com/trautman/crowd-navigation-simulator), this fork extends the architecture to support **multi-agent shared control**, where multiple decision-makers (e.g., human and AI) collaborate to navigate a robot through dense pedestrian scenarios modeled via ORCA.
 
-A Python-based simulator for evaluating social navigation policies in crowd environments using the ORCA model. This tool supports batch simulations, configurable environments, and a robust analysis suite.
+---
 
-## Repository
+## 📁 Repository Structure
 
-**GitHub:** [https://github.com/trautman/crowd-navigation-simulator](https://github.com/trautman/crowd-navigation-simulator)
+This project lives in the `shared-control-crowd-navigation/` folder and builds upon the ORCA-based simulation infrastructure to support:
+
+- Two simultaneous decision-makers (e.g. BRNE and DWA)
+- Shared control signal blending (linear or optimal transport-based)
+- Evaluation of social navigation metrics (e.g. safety distance, velocity, efficiency)
+- Configurable environments, agents, goals, and robot architectures
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/trautman/crowd-navigation-simulator.git
-cd crowd-navigation-simulator
+git clone https://github.com/yourusername/shared-control-crowd-navigation.git
+cd shared-control-crowd-navigation
 ```
 
-### 2. Run a simulation
+### 2. Run a Simulation
 
 ```bash
 python simulator.py \
@@ -28,115 +34,52 @@ python simulator.py \
     --gui
 ```
 
-Replace `<site>` and `<scenario>` accordingly.
+Replace `<site>` and `<scenario>` with your setup. The GUI shows robot trajectories, FOV, and pedestrian behavior.
 
 ---
 
-## 🛠️ Simulator Configuration
+## 🛠️ Features
 
-### Create a Simulation Run
-
-1. In the `trials/` directory, create a folder for your desired setup:
-    ```bash
-    trials/<site>/<scenario>/RUN/
-    ```
-
-2. Place your `simulator_config.yaml` inside this `RUN` directory.
-
-3. Create a `data/` folder inside the same `RUN` directory. This is where the simulator outputs metrics and other data.
-
-    Example structure:
-    ```
-    trials/
-      └── dwb/
-          └── arcade/
-              └── baseline_config/
-                  ├── RUN/
-                  │   └── simulator_config.yaml
-                  └── data/
-    ```
+- **Shared Control**: Simulates cooperation between two planners (e.g., AI and human-like agents).
+- **Optimal Transport-Based Blending**: Experimental shared control using optimal transport to align joint distributions.
+- **Customizable FOV**: Robot perception is restricted to configurable field of view.
+- **Metrics Tracking**: Logs safety distances, density, travel time, and more.
 
 ---
 
-## 📊 Analysis Instructions
+## 📂 Folder Layout
 
-### Giant Summary Plot
-
-Generate a comprehensive set of metrics binned and plotted with regression:
-
-```bash
-cd analysis
-python analyze_bags.py \
-    --data-dir ../trials/dwb/arcade/baseline_config/data/ \
-    --binned --all --giant_plot
 ```
-
-### Plot Individual Metrics
-
-- All binned plots:
-  ```bash
-  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --binned --all
-  ```
-
-- Just efficiency (binned):
-  ```bash
-  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --binned --efficiency
-  ```
-
-- Scatter version of efficiency:
-  ```bash
-  python analyze_bags.py --data-dir ../trials/dwb/arcade/baseline_config/data/ --scatter --efficiency
-  ```
-
-### YAML Metadata Generation
-
-To create yaml summaries for sim-real-sim2real processing:
-
-```bash
-python analyze_bags.py \
-    --data-dir ../trials/dwb/arcade/baseline_config/data/ \
-    --write_to_yaml \
-    --site Arcade \
-    --state ORCA \
-    --baseline DWB
+shared-control-crowd-navigation/
+├── brne_controller.py        # BRNE planner (robot)
+├── dwa_controller.py         # DWA planner (human or second agent)
+├── shared_control.py         # Combines decisions using blending rules
+├── simulator.py              # Main simulation script
+├── visualization.py          # GUI and plotting
+├── env-configs/              # Static scene definitions
+├── trials/                   # Simulation configs and data
+└── README.md
 ```
 
 ---
 
-## 🧹 Clean Trials
+## 📊 Output Metrics
 
-Remove trials with excessive path lengths:
+Simulation logs include:
 
-```bash
-python clean_by_path_length.py \
-    --data-dir ../trials/brne/spawn_rates_1.5-6_spawners_7_old_brne_cost_weights_YES_MASK_with_boundary_correction/data/ \
-    --thresh 12
-```
-
+- Minimum distance to pedestrians
+- Velocity profiles
+- Travel time and path efficiency
+- Social density in FOV
 
 ---
 
-## 🧾 Notes
+## 🤝 Contributing
 
-- The simulator reads parameters from `simulator_config.yaml`.
-- Data is written into the `data/` directory inside each RUN folder.
-- GUI mode (`--gui`) is optional but useful for visualization.
+This simulator is under active development. Issues, bugs, and PRs welcome!
 
 ---
 
-## 📁 Directory Summary
+## 📜 License
 
-```
-crowd-navigation-simulator/
-├── simulator.py
-├── env-configs/
-├── trials/
-│   └── <site>/<scenario>/RUN/simulator_config.yaml
-│   └── <site>/<scenario>/data/
-└── analysis/
-    ├── analyze_bags.py
-    └── clean_by_path_length.py
-```
-
----
-
+MIT License. See `LICENSE` file for details.
