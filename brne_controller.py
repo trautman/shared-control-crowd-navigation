@@ -72,6 +72,31 @@ class BRNEController:
             # clip & return immediately
             v = np.clip(v_os,   -cfg['max_speed'],   cfg['max_speed'])
             w = np.clip(yaw_os, -cfg['max_yaw_rate'], cfg['max_yaw_rate'])
+
+
+            # Create a simple predicted rollout for visualization
+            tsteps = cfg["gp"]["tsteps"]
+            dt     = self.dt
+
+            x, y, th0 = px, py, th
+            traj = np.zeros((tsteps, 2), dtype=float)
+
+            for k in range(tsteps):
+                # unicycle forward integrate
+                x  += v * np.cos(th0) * dt
+                y  += v * np.sin(th0) * dt
+                th0 += w * dt
+                traj[k, 0] = x
+                traj[k, 1] = y
+
+            # Store "samples" and "weights" in the format visualize_brne expects
+            self.last_robot_samples = traj[None, :, :]      # shape (1, tsteps, 2)
+            self.last_W             = np.ones((1, 1))       # shape (1, 1)
+            self.last_ped_trajs      = []
+            self.last_ped_samples    = []
+
+
+
             return v, w
 
         # ── 2) CROWDED‐SPACE: pedestrians in FOV ─────────────────────────
